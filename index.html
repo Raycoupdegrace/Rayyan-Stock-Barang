@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#f6f5f1" />
+<title>thestock — Your inventory, simplified.</title>
+<meta name="description" content="thestock — track products, stock levels, incoming and outgoing goods, and full inventory history. A clean inventory management dashboard for small businesses." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230e8f62'/><path d='M9 11h14M9 16h14M9 21h9' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>" />
+<link rel="stylesheet" href="style.css" />
+<script>
+  /* Apply the saved theme before first paint to avoid a flash of the wrong
+     theme. Falls back to the OS preference when nothing is saved yet. */
+  (function () {
+    try {
+      var saved = localStorage.getItem('thestock.theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) { /* private mode: keep the default light theme */ }
+  })();
+</script>
+</head>
+<body>
+
+<!-- ============ APP SHELL ============ -->
+<div class="app">
+
+  <!-- ---------- SIDEBAR ---------- -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-head">
+      <a class="brand" href="#" data-view="dashboard">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">thestock</span>
+          <span class="brand-tag">Your inventory, simplified.</span>
+        </span>
+      </a>
+      <button class="icon-btn sidebar-close" id="sidebarClose" type="button" aria-label="Close navigation">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav" aria-label="Sections">
+      <p class="nav-label">Workspace</p>
+      <button class="nav-item is-active" type="button" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-item" type="button" data-view="inventory">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 8.2 12 3.5l8.5 4.7v7.6L12 20.5l-8.5-4.7V8.2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.7 8.3 12 12.9l8.3-4.6M12 12.9v7.4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Inventory</span>
+        <span class="nav-badge" id="navBadgeLow" hidden>0</span>
+      </button>
+      <button class="nav-item" type="button" data-view="movements">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8h13m0 0-3.2-3.2M17 8l-3.2 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 16H7m0 0 3.2-3.2M7 16l3.2 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Stock In &amp; Out</span>
+      </button>
+      <button class="nav-item" type="button" data-view="reports">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20V4M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 16.5v-4M13 16.5V8M17.5 16.5v-6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Reports</span>
+      </button>
+
+      <p class="nav-label">System</p>
+      <button class="nav-item" type="button" data-view="data">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><ellipse cx="12" cy="6" rx="7.5" ry="3" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span>Backup &amp; Data</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="storage-card">
+        <div class="storage-row">
+          <span class="storage-dot" aria-hidden="true"></span>
+          <span>Saved locally</span>
+        </div>
+        <p class="storage-meta" id="sidebarStorage">0 products · 0 movements</p>
+      </div>
+      <p class="sidebar-note">MVP prototype · data stored in this browser</p>
+    </div>
+  </aside>
+
+  <div class="sidebar-scrim" id="sidebarScrim" hidden></div>
+
+  <!-- ---------- MAIN ---------- -->
+  <main class="main">
+
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="topbar-titles">
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSubtitle">Overview of your stock health</p>
+      </div>
+      <div class="topbar-actions" id="topbarAction"></div>
+      <button class="icon-btn theme-toggle" id="themeToggle" type="button"
+        aria-label="Switch to dark mode" title="Switch theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 14.2A8.3 8.3 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <section class="view is-active" id="view-dashboard">
+        <div class="stat-grid">
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Total products</span>
+              <span class="stat-icon tint-emerald"><svg viewBox="0 0 24 24" fill="none"><path d="M3.5 8.2 12 3.5l8.5 4.7v7.6L12 20.5l-8.5-4.7V8.2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.7 8.3 12 12.9l8.3-4.6M12 12.9v7.4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            </div>
+            <p class="stat-value" id="statProducts">0</p>
+            <p class="stat-sub" id="statProductsSub">No products yet</p>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Available stock units</span>
+              <span class="stat-icon tint-blue"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 12v9M4.4 7.7 12 12l7.6-4.3" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            </div>
+            <p class="stat-value" id="statUnits">0</p>
+            <p class="stat-sub" id="statUnitsSub">Across all categories</p>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Low-stock products</span>
+              <span class="stat-icon tint-amber"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4.5 21 19.5H3L12 4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.2M12 17.1v.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+            </div>
+            <p class="stat-value" id="statLow">0</p>
+            <p class="stat-sub" id="statLowSub">All products healthy</p>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Movements recorded</span>
+              <span class="stat-icon tint-violet"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h13m0 0-3.2-3.2M17 8l-3.2 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 16H7m0 0 3.2-3.2M7 16l3.2 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <p class="stat-value" id="statValue">0</p>
+            <p class="stat-sub" id="statValueSub">Stock in and stock out</p>
+          </article>
+        </div>
+
+        <div class="grid-2">
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Recent activity</h2>
+                <p class="card-sub">Latest inventory movements</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" type="button" data-view="reports">View all</button>
+            </header>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr><th>Date</th><th>Product</th><th>Type</th><th class="ta-right">Qty</th><th class="ta-right">Balance</th></tr>
+                </thead>
+                <tbody id="recentTxBody"></tbody>
+              </table>
+              <div class="empty" id="recentEmpty" hidden>
+                <p class="empty-title">No movements yet</p>
+                <p class="empty-text">Record your first stock in or stock out to see activity here.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Low-stock alerts</h2>
+                <p class="card-sub">At or below minimum level</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" type="button" data-view="inventory" data-filter="low">Review</button>
+            </header>
+            <ul class="alert-list" id="lowStockList"></ul>
+            <div class="empty" id="lowEmpty" hidden>
+              <p class="empty-title">Everything is healthy</p>
+              <p class="empty-text">No product has reached its minimum stock level.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===== INVENTORY ===== -->
+      <section class="view" id="view-inventory">
+        <div class="card">
+          <header class="card-head">
+            <div>
+              <h2>Products</h2>
+              <p class="card-sub" id="invSubtitle">0 products</p>
+            </div>
+            <button class="btn btn-primary" id="addProductBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Add product
+            </button>
+          </header>
+
+          <div class="toolbar">
+            <div class="field-search">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <input type="search" id="invSearch" placeholder="Search by name or SKU…" autocomplete="off" />
+            </div>
+            <select id="invCategory" aria-label="Filter by category"><option value="">All categories</option></select>
+            <select id="invStatus" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="low">Low stock</option>
+              <option value="out">Out of stock</option>
+              <option value="ok">Healthy</option>
+            </select>
+            <select id="invSort" aria-label="Sort products">
+              <option value="name-asc">Name (A–Z)</option>
+              <option value="name-desc">Name (Z–A)</option>
+              <option value="stock-asc">Stock (low → high)</option>
+              <option value="stock-desc">Stock (high → low)</option>
+              <option value="recent">Recently updated</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table table-inventory">
+              <thead>
+                <tr>
+                  <th>SKU</th><th>Product</th><th>Category</th><th>Unit</th>
+                  <th class="ta-right">Stock</th><th class="ta-right">Min</th>
+                  <th>Status</th><th class="ta-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="invBody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty" id="invEmpty" hidden>
+            <div class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3.5 8.2 12 3.5l8.5 4.7v7.6L12 20.5l-8.5-4.7V8.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3.7 8.3 12 12.9l8.3-4.6M12 12.9v7.4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            </div>
+            <p class="empty-title" id="invEmptyTitle">No products yet</p>
+            <p class="empty-text" id="invEmptyText">Add your first product to start tracking stock levels.</p>
+            <button class="btn btn-primary" id="invEmptyBtn" type="button">Add product</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STOCK IN & OUT ===== -->
+      <section class="view" id="view-movements">
+        <div class="grid-move">
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Record a movement</h2>
+                <p class="card-sub">Stock in increases inventory, stock out decreases it</p>
+              </div>
+            </header>
+
+            <form id="moveForm" class="form" novalidate>
+              <div class="segmented" role="group" aria-label="Movement type">
+                <button type="button" class="seg is-active" data-type="in">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5m0 0L6.5 10.5M12 5l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Stock In
+                </button>
+                <button type="button" class="seg" data-type="out">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m0 0 5.5-5.5M12 19l-5.5-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Stock Out
+                </button>
+              </div>
+
+              <div class="field">
+                <label for="moveProduct">Product</label>
+                <select id="moveProduct" required>
+                  <option value="">Select a product…</option>
+                </select>
+                <p class="field-hint" id="moveProductHint">Choose the product this movement applies to.</p>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="moveQty">Quantity</label>
+                  <input type="number" id="moveQty" min="1" step="1" inputmode="numeric" placeholder="0" required />
+                  <p class="field-error" id="moveQtyError" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="moveDate">Date</label>
+                  <input type="date" id="moveDate" required />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="moveNotes">Notes <span class="label-optional">optional</span></label>
+                <textarea id="moveNotes" rows="2" placeholder="e.g. Supplier delivery, order #1042…"></textarea>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" id="moveSubmit">Record stock in</button>
+                <button class="btn btn-ghost" type="reset" id="moveReset">Clear</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Latest movements</h2>
+                <p class="card-sub">Most recent 8 records</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" type="button" data-view="reports">Reports</button>
+            </header>
+            <ul class="movement-list" id="movementList"></ul>
+            <div class="empty" id="movementEmpty" hidden>
+              <p class="empty-title">No movements recorded</p>
+              <p class="empty-text">Use the form to record incoming or outgoing stock.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===== REPORTS ===== -->
+      <section class="view" id="view-reports">
+        <div class="stat-grid stat-grid-3">
+          <article class="stat-card stat-compact">
+            <span class="stat-label">Movements</span>
+            <p class="stat-value" id="repCount">0</p>
+          </article>
+          <article class="stat-card stat-compact">
+            <span class="stat-label">Units in</span>
+            <p class="stat-value value-in" id="repInTotal">0</p>
+          </article>
+          <article class="stat-card stat-compact">
+            <span class="stat-label">Units out</span>
+            <p class="stat-value value-out" id="repOutTotal">0</p>
+          </article>
+        </div>
+
+        <div class="card">
+          <header class="card-head">
+            <div>
+              <h2>Inventory movement report</h2>
+              <p class="card-sub">Every movement with its resulting stock balance</p>
+            </div>
+            <button class="btn btn-secondary" id="exportCsvBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-1.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+              Export CSV
+            </button>
+          </header>
+
+          <div class="toolbar">
+            <div class="field-search">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <input type="search" id="repSearch" placeholder="Search product, SKU or notes…" autocomplete="off" />
+            </div>
+            <select id="repType" aria-label="Filter by movement type">
+              <option value="">All types</option>
+              <option value="in">Stock in</option>
+              <option value="out">Stock out</option>
+            </select>
+            <label class="date-field"><span>From</span><input type="date" id="repFrom" /></label>
+            <label class="date-field"><span>To</span><input type="date" id="repTo" /></label>
+            <button class="btn btn-ghost btn-sm" id="repClear" type="button">Reset filters</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Product</th><th>SKU</th><th>Type</th>
+                  <th class="ta-right">Qty</th><th class="ta-right">Balance</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="repBody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty" id="repEmpty" hidden>
+            <p class="empty-title">No movements match your filters</p>
+            <p class="empty-text">Try widening the date range or clearing the search.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== DATA / SETTINGS ===== -->
+      <section class="view" id="view-data">
+        <div class="grid-2">
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Backup &amp; restore</h2>
+                <p class="card-sub">Keep a portable copy of your inventory</p>
+              </div>
+            </header>
+            <div class="stack">
+              <div class="row-between">
+                <div>
+                  <p class="row-title">Export backup (JSON)</p>
+                  <p class="row-text">Downloads all products, movements and settings as a single file.</p>
+                </div>
+                <button class="btn btn-secondary" id="exportJsonBtn" type="button">Export</button>
+              </div>
+              <div class="row-between">
+                <div>
+                  <p class="row-title">Restore from backup</p>
+                  <p class="row-text">Replaces your current data with the contents of a backup file.</p>
+                </div>
+                <div>
+                  <input type="file" id="importJsonInput" accept="application/json,.json" hidden />
+                  <button class="btn btn-secondary" id="importBtn" type="button">Choose file</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>Demo data</h2>
+                <p class="card-sub">Sample catalogue for testing the MVP</p>
+              </div>
+            </header>
+            <div class="stack">
+              <div class="row-between">
+                <div>
+                  <p class="row-title">Reset demo data</p>
+                  <p class="row-text">Replaces everything with the original sample products and movements.</p>
+                </div>
+                <button class="btn btn-secondary" id="resetDemoBtn" type="button">Reset demo</button>
+              </div>
+              <div class="row-between row-danger">
+                <div>
+                  <p class="row-title">Delete all data</p>
+                  <p class="row-text">Removes all products and movement history from this browser. This cannot be undone.</p>
+                </div>
+                <button class="btn btn-danger" id="clearAllBtn" type="button">Delete all</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="card">
+          <header class="card-head">
+            <div>
+              <h2>Storage</h2>
+              <p class="card-sub">Where your data lives</p>
+            </div>
+          </header>
+          <dl class="kv">
+            <div><dt>Storage key</dt><dd><code>thestock.v1</code></dd></div>
+            <div><dt>Products</dt><dd id="storageProducts">0</dd></div>
+            <div><dt>Movements</dt><dd id="storageTx">0</dd></div>
+            <div><dt>Approx. size</dt><dd id="storageSize">0 KB</dd></div>
+            <div><dt>Last updated</dt><dd id="storageUpdated">—</dd></div>
+          </dl>
+        </section>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ============ PRODUCT MODAL ============ -->
+<div class="modal" id="productModal" hidden>
+  <div class="modal-scrim" data-close="1"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="productModalTitle">
+    <header class="modal-head">
+      <div>
+        <h2 id="productModalTitle">Add product</h2>
+        <p class="modal-sub" id="productModalSub">Create a new item to track in inventory.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close="1" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <form id="productForm" class="form" novalidate>
+      <input type="hidden" id="pId" />
+      <div class="field-row">
+        <div class="field">
+          <label for="pSku">SKU <span class="req">*</span></label>
+          <input type="text" id="pSku" placeholder="e.g. BEV-001" autocomplete="off" required />
+          <p class="field-error" id="pSkuError" hidden></p>
+        </div>
+        <div class="field">
+          <label for="pCategory">Category</label>
+          <input type="text" id="pCategory" list="categoryOptions" placeholder="e.g. Beverages" autocomplete="off" />
+          <datalist id="categoryOptions"></datalist>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="pName">Product name <span class="req">*</span></label>
+        <input type="text" id="pName" placeholder="e.g. House Blend Coffee 1kg" autocomplete="off" required />
+        <p class="field-error" id="pNameError" hidden></p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="pUnit">Unit</label>
+          <input type="text" id="pUnit" list="unitOptions" placeholder="e.g. bag, box, pcs" autocomplete="off" />
+          <datalist id="unitOptions"></datalist>
+        </div>
+        <div class="field">
+          <label for="pMinStock">Minimum stock level</label>
+          <input type="number" id="pMinStock" min="0" step="1" inputmode="numeric" value="0" />
+          <p class="field-error" id="pMinStockError" hidden></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="pStock" id="pStockLabel">Opening stock</label>
+        <input type="number" id="pStock" min="0" step="1" inputmode="numeric" value="0" />
+        <p class="field-hint" id="pStockHint">Recorded as an opening-stock movement so history stays consistent.</p>
+        <p class="field-error" id="pStockError" hidden></p>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="btn btn-ghost" type="button" data-close="1">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="productSaveBtn">Save product</button>
+      </footer>
+    </form>
+  </div>
+</div>
+
+<!-- ============ CONFIRM MODAL ============ -->
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-scrim" data-close="1"></div>
+  <div class="modal-panel modal-panel-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <header class="modal-head">
+      <div>
+        <h2 id="confirmTitle">Are you sure?</h2>
+        <p class="modal-sub" id="confirmMessage">This action cannot be undone.</p>
+      </div>
+    </header>
+    <footer class="modal-foot">
+      <button class="btn btn-ghost" type="button" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" type="button" id="confirmOk">Confirm</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
